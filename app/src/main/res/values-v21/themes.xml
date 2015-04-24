@@ -1,0 +1,23 @@
+<resources>
+    <style name="AppTheme" parent="android:Theme.Holo.Light.DarkActionBar">
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:textColorSecondary">@color/material_deep_teal_200</item>
+        <item name="android:actionMenuTextColor">@color/material_deep_teal_500</item>
+        <item name="windowActionBar">true</item>
+        <item name="android:windowBackground">@color/windowBackground</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowSharedElementEnterTransition">@android:transition/move</item>
+        <item name="android:windowSharedElementExitTransition">@android:transition/move</item>
+        <item name="android:popupMenuStyle">@style/PopupMenu.MyAppTheme</item>
+        <item name="android:toolbarStyle">@style/PopupMenu.MyAppTheme</item>
+    </style>
+
+
+    <style name="PopupMenu.MyAppTheme" parent="android:style/Widget.Holo.Light.ListPopupWindow">
+        <item name="android:popupBackground">@color/popup_menu_bg_color</item>
+    </style>
+    <!-- This helps the PopupMenu stick with Light theme while the ActionBar is in Dark theme -->
+
+</resources>

@@ -1,0 +1,16 @@
+<resources>
+    <style name="AppTheme" parent="AppTheme.Base"/>
+
+    <style name="AppTheme.Base" parent="Theme.AppCompat">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="windowActionBar">true</item>
+        <item name="android:textColorSecondary">@color/actionMenuTextColor</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="android:actionMenuTextColor">@color/actionMenuTextColor</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:windowBackground">@color/windowBackground</item>
+        <item name="android:popupMenuStyle">@style/PopupMenu.MyAppTheme</item>
+
+    </style>
+</resources>

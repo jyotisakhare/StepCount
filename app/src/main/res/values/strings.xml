@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">JanaCare</string>
+    <string name="action_refresh">refresh</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_dump_subs">list subscription</string>
+    <string name="action_cancel_subs">cancle subscription</string>
+    <string name="title_activity_weekly_report">WeeklyReportActivity</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="pref_goal_key">goal</string>
+    <string name="pref_Goal_Setting_label">Set your goal</string>
+    <string name="pref_goal_default">10000</string>
+    <string name="title_activity_settings">Settings</string>
+    <string name="action_weekly_report">Weekly Report</string>
+    <string name="action_share">Share Report</string>
+</resources>

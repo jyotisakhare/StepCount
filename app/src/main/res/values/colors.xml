@@ -1,0 +1,12 @@
+<resources>
+    <color name="colorPrimary">#00BCD4</color>
+    <color name="colorPrimaryDark">#00BCD4</color>
+    <color name="colorSecondary">@color/material_deep_teal_200</color>
+    <color name="colorSecondaryDark">@color/material_deep_teal_500</color>
+    <color name="actionMenuTextColor">@color/material_deep_teal_500</color>
+    <color name="windowBackground">#E0F7FA</color>
+    <color name="black_translucent">#FCE4EC</color>
+    <color name="textColorPrimary">#000000</color>
+    <color name="popup_menu_bg_color">#FFFFFF</color>
+
+</resources>
