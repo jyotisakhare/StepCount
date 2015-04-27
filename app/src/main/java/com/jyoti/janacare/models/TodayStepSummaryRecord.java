@@ -10,15 +10,21 @@ public class TodayStepSummaryRecord implements Parcelable {
     int steps;
     String startTime;
     String endTime;
-
+    int notifyUser;
 
 
     public TodayStepSummaryRecord(int steps, String startTime, String endTime) {
         this.steps = steps;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.notifyUser = 0;
     }
-
+    public TodayStepSummaryRecord(int steps, String startTime, String endTime,int notifyUser) {
+        this.steps = steps;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.notifyUser = notifyUser;
+    }
 
     public int getSteps() {
         return steps;
@@ -32,6 +38,14 @@ public class TodayStepSummaryRecord implements Parcelable {
         return endTime;
     }
 
+
+    public int getNotifyUser() {
+        return notifyUser;
+    }
+
+    public void setNotifyUser(int notifyUser) {
+        this.notifyUser = notifyUser;
+    }
 
     @Override
     public int describeContents() {

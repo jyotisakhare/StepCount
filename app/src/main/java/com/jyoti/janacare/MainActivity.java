@@ -43,7 +43,6 @@ import java.util.concurrent.TimeUnit;
 
 
 public class MainActivity extends ActionBarActivity {
-   // private Toolbar toolbar;
     private ProgressBar progressBar;
     public final static String TAG = "MainActivity";
     private ConnectionResult mFitResultResolution;
@@ -59,35 +58,11 @@ public class MainActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        //toolbar = (Toolbar) findViewById(R.id.toolbar);
         progressBar=(ProgressBar)findViewById(R.id.progressBar);
         todayStepCountList = (ListView)findViewById(R.id.today_step_count_list);
         List<TodayStepSummaryRecord> list = new ArrayList<TodayStepSummaryRecord>();
         todayStepRecordAdapter = new TodayStepRecordAdapter(this,R.layout.today_step_count_row,list);
         todayStepCountList.setAdapter(todayStepRecordAdapter);
-//        if (toolbar != null) {
-//            setSupportActionBar(toolbar);
-//
-//        }
-//        toolbar.inflateMenu(R.menu.menu_main);
-//        toolbar.setOnMenuItemClickListener(new Toolbar.OnMenuItemClickListener() {
-//            @Override
-//            public boolean onMenuItemClick(MenuItem menuItem) {
-//
-//                switch (menuItem.getItemId()){
-//                    case R.id.action_share:
-//                        ShareActionProvider mShareActionProvider = (ShareActionProvider) MenuItemCompat.getActionProvider(menuItem);
-//                        if (mShareActionProvider != null ) {
-//                            mShareActionProvider.setShareIntent(createShareForecastIntent());
-//                        } else {
-//                            Log.d(TAG, "Share Action Provider is null?");
-//                        }
-//                        return true;
-//                }
-//
-//                return false;
-//            }
-//        });
         step_count =  (TextView)findViewById(R.id.step_count);
         inactive_time = (TextView)findViewById(R.id.inactvie_time);
         goal_percent = (TextView)findViewById(R.id.goal_percent);
@@ -98,15 +73,14 @@ public class MainActivity extends ActionBarActivity {
         }
 
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(mFitStatusReceiver, new IntentFilter(GoogleFitService.FIT_NOTIFY_INTENT));
-        LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(GoogleFitService.HISTORY_INTENT));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mFitStatusReceiver, new IntentFilter(Constants.FIT_NOTIFY_INTENT));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(Constants.HISTORY_INTENT));
 
         requestFitConnection();
 
     }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return super.onCreateOptionsMenu(menu);
     }
@@ -119,24 +93,9 @@ public class MainActivity extends ActionBarActivity {
             handleGetStepsButton();
             return true;
         }else if(id == R.id.action_share){
-           // MenuItem item = menu.findItem(R.id.action_share);
-            Log.d(TAG, "Share Action ");
             createShareForecastIntent();
-//            ShareActionProvider mShareActionProvider = (ShareActionProvider) MenuItemCompat.getActionProvider(item);
-//            if (mShareActionProvider != null ) {
-//                mShareActionProvider.setShareIntent(createShareForecastIntent());
-//            } else {
-//                Log.d(TAG, "Share Action Provider is null?");
-//            }
             return true;
         }
-        /*else if (id == R.id.action_cancel_subs) {
-            cancelSubscription();
-            return true;
-        } else if (id == R.id.action_dump_subs) {
-            //dumpSubscriptionsList();
-            return true;
-        }*/
         else if(id == R.id.action_settings){
             Intent intent = new Intent(this,SettingsActivity.class);
             startActivity(intent);
@@ -151,7 +110,7 @@ public class MainActivity extends ActionBarActivity {
 
     private void cancelSubscription() {
         Intent service = new Intent(this, GoogleFitService.class);
-        service.putExtra(GoogleFitService.SERVICE_REQUEST_TYPE, GoogleFitService.TYPE_CANCLE_SUBCRIPTION);
+        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_CANCLE_SUBCRIPTION);
         startService(service);
     }
 
@@ -170,29 +129,29 @@ public class MainActivity extends ActionBarActivity {
     private void handleGetStepsButton() {
         progressBar.setVisibility(View.VISIBLE);
         Intent service = new Intent(this, GoogleFitService.class);
-        service.putExtra(GoogleFitService.SERVICE_REQUEST_TYPE, GoogleFitService.TYPE_GET_STEP_TODAY_DATA);
+        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_GET_STEP_TODAY_DATA);
         startService(service);
     }
 
     private void requestFitConnection() {
         progressBar.setVisibility(View.VISIBLE);
         Intent service = new Intent(this, GoogleFitService.class);
-        service.putExtra(GoogleFitService.SERVICE_REQUEST_TYPE, GoogleFitService.TYPE_REQUEST_CONNECTION);
+        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_REQUEST_CONNECTION);
         startService(service);
     }
 
     private BroadcastReceiver mFitStatusReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent.hasExtra(GoogleFitService.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE) &&
-                    intent.hasExtra(GoogleFitService.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE)) {
-                int statusCode = intent.getIntExtra(GoogleFitService.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE, 0);
-                PendingIntent pendingIntent = intent.getParcelableExtra(GoogleFitService.FIT_EXTRA_NOTIFY_FAILED_INTENT);
+            if (intent.hasExtra(Constants.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE) &&
+                    intent.hasExtra(Constants.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE)) {
+                int statusCode = intent.getIntExtra(Constants.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE, 0);
+                PendingIntent pendingIntent = intent.getParcelableExtra(Constants.FIT_EXTRA_NOTIFY_FAILED_INTENT);
                 ConnectionResult result = new ConnectionResult(statusCode, pendingIntent);
                 Log.d(TAG, "Fit connection failed - opening connect screen.");
                 fitHandleFailedConnection(result);
             }
-            if (intent.hasExtra(GoogleFitService.FIT_EXTRA_CONNECTION_MESSAGE)) {
+            if (intent.hasExtra(Constants.FIT_EXTRA_CONNECTION_MESSAGE)) {
                 Log.d(TAG, "Fit connection successful - closing connect screen if it's open.");
                 fitHandleConnection();
             }
@@ -212,10 +171,10 @@ public class MainActivity extends ActionBarActivity {
 
              progressBar.setVisibility(View.GONE);
             findViewById(R.id.main_title_text).setVisibility(View.VISIBLE);
-            if (intent.hasExtra(GoogleFitService.HISTORY_EXTRA_STEPS_TODAY)) {
+            if (intent.hasExtra(Constants.HISTORY_EXTRA_STEPS_TODAY)) {
 
-                totalSteps = intent.getIntExtra(GoogleFitService.HISTORY_EXTRA_STEPS_TODAY, 0);
-                ArrayList<TodayStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(GoogleFitService.HISTOY_EXTRA_STEPS_TODAY_SUMMARY);
+                totalSteps = intent.getIntExtra(Constants.HISTORY_EXTRA_STEPS_TODAY, 0);
+                ArrayList<TodayStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_TODAY_SUMMARY);
                 todayStepRecordAdapter.clear();
                 for(TodayStepSummaryRecord t:stepRecordList) {
                     try {

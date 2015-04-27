@@ -1,10 +1,12 @@
 package com.jyoti.janacare;
 
 import android.app.IntentService;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.Scopes;
@@ -20,15 +22,10 @@ import com.google.android.gms.fitness.data.DataSet;
 import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.data.DataType;
 import com.google.android.gms.fitness.data.Field;
-import com.google.android.gms.fitness.data.Subscription;
-import com.google.android.gms.fitness.data.Value;
 import com.google.android.gms.fitness.request.DataReadRequest;
-import com.google.android.gms.fitness.request.DataSourcesRequest;
 import com.google.android.gms.fitness.request.OnDataPointListener;
-import com.google.android.gms.fitness.request.SensorRequest;
 import com.google.android.gms.fitness.result.DataReadResult;
-import com.google.android.gms.fitness.result.DataSourcesResult;
-import com.google.android.gms.fitness.result.ListSubscriptionsResult;
+import com.google.android.gms.location.ActivityRecognition;
 import com.jyoti.janacare.models.TodayStepSummaryRecord;
 import com.jyoti.janacare.models.WeekStepSummaryRecord;
 
@@ -40,25 +37,13 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 
-public class GoogleFitService extends IntentService {
-    public static final String DATE_FORMAT = "yyyy.MM.dd HH:mm:ss";
-    public static final String TAG = "GoogleFitService";
-    public GoogleApiClient mGoogleApiFitnessClient;
-    public boolean mTryingToConnect = false;
+public class GoogleFitService extends IntentService implements  ResultCallback<Status>{
 
-    public static final String SERVICE_REQUEST_TYPE = "requestType";
-    public static final int TYPE_GET_STEP_TODAY_DATA = 1;
-    public static final int TYPE_REQUEST_CONNECTION = 2;
-    public static final int TYPE_CANCLE_SUBCRIPTION = 3;
-    public static final int TYPE_WEEKLY_STEP_COUNT =4;
-    public static final String HISTORY_INTENT = "fitHistory";
-    public static final String HISTORY_EXTRA_STEPS_TODAY = "stepsToday";
-    public static final String HISTOY_EXTRA_STEPS_TODAY_SUMMARY ="stepsTodaySummary";
-    public static final String HISTOY_EXTRA_STEPS_WEEK_SUMMARY ="stepsWeekSummary";
-    public static final String FIT_NOTIFY_INTENT = "fitStatusUpdateIntent";
-    public static final String FIT_EXTRA_CONNECTION_MESSAGE = "fitFirstConnection";
-    public static final String FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE = "fitExtraFailedStatusCode";
-    public static final String FIT_EXTRA_NOTIFY_FAILED_INTENT = "fitExtraFailedIntent";
+    public static final String TAG = "GoogleFitService";
+    public static GoogleApiClient mGoogleApiFitnessClient;
+    private PendingIntent mActivityDetectionPendingIntent;
+    public static boolean mTryingToConnect = false;
+
     private OnDataPointListener mListener;
     @Override
     public void onDestroy() {
@@ -75,13 +60,7 @@ public class GoogleFitService extends IntentService {
     public GoogleFitService() {
         super("GoogleFitService");
     }
-
-    @Override
-    protected void onHandleIntent(Intent intent) {
-
-        //Get the request type
-        int type = intent.getIntExtra(SERVICE_REQUEST_TYPE, -1);
-
+    public static GoogleApiClient connectGoogleApiClient(){
         //block until google fit connects.
         if (!mGoogleApiFitnessClient.isConnected()) {
             mTryingToConnect = true;
@@ -96,18 +75,29 @@ public class GoogleFitService extends IntentService {
                 }
             }
         }
+        return mGoogleApiFitnessClient;
+    }
+    @Override
+    protected void onHandleIntent(Intent intent) {
 
+        //Get the request type
+        int type = intent.getIntExtra(Constants.SERVICE_REQUEST_TYPE, -1);
+        connectGoogleApiClient();
         if (mGoogleApiFitnessClient.isConnected()) {
-            if (type == TYPE_GET_STEP_TODAY_DATA) {
+            if (type == Constants.TYPE_GET_STEP_TODAY_DATA) {
                 Log.d(TAG, "Requesting steps from Google Fit");
                 getStepsToday();
                 //Log.d(TAG, "Fit update complete.  Allowing Android to destroy the service.");
-            } else if (type == TYPE_REQUEST_CONNECTION) {
+            } else if (type == Constants.TYPE_REQUEST_CONNECTION) {
                 //Don't need to do anything because the connection is already requested above
-            }else  if(type==TYPE_CANCLE_SUBCRIPTION){
+            }else  if(type==Constants.TYPE_CANCLE_SUBCRIPTION){
                 cancelSubscription();
-            }else if(type == TYPE_WEEKLY_STEP_COUNT){
+            }else if(type == Constants.TYPE_WEEKLY_STEP_COUNT){
                 getStepCountForAWeek();
+            }else if(type == Constants.TYPE_GET_STEP_COUNT_BETWEEN_INTERVAL){
+                long starTime = intent.getLongExtra("startTime", 0);
+                long endTime = intent.getLongExtra("endTime",0);
+                getStepCountBetweenInterval(starTime,endTime);
             }
         } else {
             //Not connected
@@ -124,32 +114,29 @@ public class GoogleFitService extends IntentService {
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         long startTime = cal.getTimeInMillis();
+        int totalSteps = getStepCountBetweenInterval(startTime,endTime);
+        publishTodaysStepData(totalSteps);
+    }
 
+    public static int getStepCountBetweenInterval(long startTime,long endTime)
+    {
+        connectGoogleApiClient();
+        int totalSteps = 0;
         final DataReadRequest readRequest = new DataReadRequest.Builder()
                 .read(DataType.TYPE_STEP_COUNT_DELTA)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
                 .build();
-
-        DataReadResult dataReadResult =
-                Fitness.HistoryApi.readData(mGoogleApiFitnessClient, readRequest).await(1, TimeUnit.MINUTES);
-
+        DataReadResult dataReadResult = Fitness.HistoryApi.readData(mGoogleApiFitnessClient, readRequest)
+                                               .await(1, TimeUnit.MINUTES);
         DataSet stepData = dataReadResult.getDataSet(DataType.TYPE_STEP_COUNT_DELTA);
-
-        int totalSteps = 0;
-
         for (DataPoint dp : stepData.getDataPoints()) {
             for(Field field : dp.getDataType().getFields()) {
-                if(dp.getValue(field).asInt() < 30) continue;
                 int steps = dp.getValue(field).asInt();
-
                 totalSteps += steps;
-
             }
         }
-
-        publishTodaysStepData(totalSteps);
+        return totalSteps;
     }
-
     private List<TodayStepSummaryRecord> getStepCountSummaryForADay(){
         SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm");
         List<TodayStepSummaryRecord> stepRecordList = new ArrayList<TodayStepSummaryRecord>();
@@ -165,6 +152,9 @@ public class GoogleFitService extends IntentService {
         DataReadRequest readRequest = new DataReadRequest.Builder()
                 .aggregate(DataType.TYPE_STEP_COUNT_DELTA, DataType.AGGREGATE_STEP_COUNT_DELTA)
                 .bucketByTime(1, TimeUnit.HOURS)
+                //.bucketByActivitySegment(1,TimeUnit.SECONDS)
+                //.bucketBySession(1, TimeUnit.MINUTES)
+                //.bucketByActivityType(1,TimeUnit.MINUTES)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
                 .build();
 
@@ -178,8 +168,6 @@ public class GoogleFitService extends IntentService {
 
                     for (DataPoint dp : dataSet.getDataPoints()) {
                         for(Field field : dp.getDataType().getFields()) {
-                            //describeDataPoint(dp);
-                            if(dp.getValue(field).asInt() < 30) continue;
                             Log.d(TAG, String.valueOf(dp.getValue(field))+dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS))+dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
                             TodayStepSummaryRecord stepRecord = new TodayStepSummaryRecord(Integer.parseInt(String.valueOf(dp.getValue(field))),
                                     dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)),
@@ -199,7 +187,7 @@ public class GoogleFitService extends IntentService {
         // Setting a start and end date using a range of 1 week before this moment.
         List<WeekStepSummaryRecord> weekrecordList = new ArrayList<WeekStepSummaryRecord>();
         SimpleDateFormat dateFormatWeekRecord = new SimpleDateFormat("EEE, MMM d, ''yy");
-        SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
+        SimpleDateFormat dateFormat = new SimpleDateFormat(Constants.DATE_FORMAT);
         Calendar cal = Calendar.getInstance();
         Date now = new Date();
         cal.setTime(now);
@@ -229,7 +217,7 @@ public class GoogleFitService extends IntentService {
                     Log.d(" week  ", "dataSet.dataType:" + dataSet.getDataType().getName());
                     for (DataPoint dp : dataSet.getDataPoints()) {
                         for(Field field : dp.getDataType().getFields()) {
-                            if(dp.getValue(field).asInt() < 30) continue;
+                            //if(dp.getValue(field).asInt() < 30) continue;
                             Log.d(TAG, String.valueOf(dp.getValue(field))+dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS))+dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
                             WeekStepSummaryRecord weekRecord = new WeekStepSummaryRecord(
                                     dateFormatWeekRecord.format(dp.getStartTime(TimeUnit.MILLISECONDS)),
@@ -244,37 +232,22 @@ public class GoogleFitService extends IntentService {
         publishWeeklyStepData(weekrecordList);
 
     }
-//    public void describeDataPoint(DataPoint dp) {
-//        SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
-//        String msg = "dataPoint: "
-//                //+ "type: " + dp.getDataType().getName()
-//                +"\n"
-//                + ", range: [" + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)) + "-" + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)) + "]\n"
-//                + ", fields: [";
-//
-//        for(Field field : dp.getDataType().getFields()) {
-//            msg += field.getName() + "=" + dp.getValue(field) + " ";
-//        }
-//
-//        msg += "]";
-//        Log.d("msg",msg);
-//
-//    }
+
 
 protected void publishTodaysStepData(int totalSteps) {
     ArrayList<TodayStepSummaryRecord> stepsRecordList = (ArrayList<TodayStepSummaryRecord>)getStepCountSummaryForADay();
-    Intent intent = new Intent(HISTORY_INTENT);
+    Intent intent = new Intent(Constants.HISTORY_INTENT);
 
-    intent.putExtra(HISTORY_EXTRA_STEPS_TODAY, totalSteps);
-    intent.putParcelableArrayListExtra(HISTOY_EXTRA_STEPS_TODAY_SUMMARY, stepsRecordList);
+    intent.putExtra(Constants.HISTORY_EXTRA_STEPS_TODAY, totalSteps);
+    intent.putParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_TODAY_SUMMARY, stepsRecordList);
     LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
 
     protected void publishWeeklyStepData(List<WeekStepSummaryRecord> weeklyRecord) {
         ArrayList<WeekStepSummaryRecord> weeksRecordList = (ArrayList<WeekStepSummaryRecord>)weeklyRecord;
-        Intent intent = new Intent(HISTORY_INTENT);
-        intent.putParcelableArrayListExtra(HISTOY_EXTRA_STEPS_WEEK_SUMMARY, weeksRecordList);
+        Intent intent = new Intent(Constants.HISTORY_INTENT);
+        intent.putParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY, weeksRecordList);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
@@ -282,6 +255,7 @@ protected void publishTodaysStepData(int totalSteps) {
         // Create the Google API Client
         mGoogleApiFitnessClient = new GoogleApiClient.Builder(this)
                 .addApi(Fitness.API)
+                .addApi(ActivityRecognition.API)
                 .addScope(new Scope(Scopes.FITNESS_BODY_READ_WRITE))
                 .addScope(new Scope(Scopes.FITNESS_ACTIVITY_READ_WRITE))
                 .addScope(new Scope(Scopes.FITNESS_LOCATION_READ_WRITE))
@@ -293,8 +267,14 @@ protected void publishTodaysStepData(int totalSteps) {
                                 Log.i(TAG, "Google Fit connected.");
                                 mTryingToConnect = false;
                                 Log.d(TAG, "Notifying the UI that we're connected.");
-                                findFitnessDataSources();
+                                //find all the data sources for which we can receive data
+                                // add above scopes in googleAPIClient bUilder method
+                                //findFitnessDataSources();
+                                //subscribe to recording API to store steps delta
                                 subscribe();
+                                //detecting activities like still walking running
+                                requestActivityUpdates();
+
                                 notifyUiFitConnected();
 
 
@@ -327,107 +307,18 @@ protected void publishTodaysStepData(int totalSteps) {
     }
 
     private void notifyUiFitConnected() {
-        Intent intent = new Intent(FIT_NOTIFY_INTENT);
-        intent.putExtra(FIT_EXTRA_CONNECTION_MESSAGE, FIT_EXTRA_CONNECTION_MESSAGE);
+        Intent intent = new Intent(Constants.FIT_NOTIFY_INTENT);
+        intent.putExtra(Constants.FIT_EXTRA_CONNECTION_MESSAGE, Constants.FIT_EXTRA_CONNECTION_MESSAGE);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     private void notifyUiFailedConnection(ConnectionResult result) {
-        Intent intent = new Intent(FIT_NOTIFY_INTENT);
-        intent.putExtra(FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE, result.getErrorCode());
-        intent.putExtra(FIT_EXTRA_NOTIFY_FAILED_INTENT, result.getResolution());
+        Intent intent = new Intent(Constants.FIT_NOTIFY_INTENT);
+        intent.putExtra(Constants.FIT_EXTRA_NOTIFY_FAILED_STATUS_CODE, result.getErrorCode());
+        intent.putExtra(Constants.FIT_EXTRA_NOTIFY_FAILED_INTENT, result.getResolution());
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
-    private void findFitnessDataSources() {
-        // [START find_data_sources]
-        Fitness.SensorsApi.findDataSources(mGoogleApiFitnessClient, new DataSourcesRequest.Builder()
-                .setDataTypes(
-                        DataType.TYPE_LOCATION_SAMPLE,
-                        DataType.TYPE_STEP_COUNT_DELTA,
-                        DataType.TYPE_DISTANCE_DELTA,
-                        DataType.TYPE_HEART_RATE_BPM)
-                .setDataSourceTypes(DataSource.TYPE_RAW, DataSource.TYPE_DERIVED)
-                .build())
-                .setResultCallback(new ResultCallback<DataSourcesResult>() {
-                    @Override
-                    public void onResult(DataSourcesResult dataSourcesResult) {
-                        Log.i(TAG, " findFitnessDataSources Result: " + dataSourcesResult.getStatus().toString()+String.valueOf(dataSourcesResult.getDataSources().size()));
-                        for (DataSource dataSource : dataSourcesResult.getDataSources()) {
-                            //Log.i(TAG, "findFitnessDataSources Data source found: " + dataSource.toString());
-                            //Log.i(TAG, "findFitnessDataSources Data Source type: " + dataSource.getDataType().getName());
-                            //Let's register a listener to receive Activity data!
-                            if (dataSource.getDataType().equals(DataType.TYPE_STEP_COUNT_DELTA)
-                                    && mListener == null) {
-                                Log.i(TAG, "findFitnessDataSources Data source for LOCATION_SAMPLE found!  Registering.");
-                                registerFitnessDataListener(dataSource,
-                                        DataType.TYPE_STEP_COUNT_DELTA);
-                            }
-                        }
-                    }
-                });
-        // [END find_data_sources]
-    }
-    /**
-     * Register a listener with the Sensors API for the provided {@link DataSource} and
-     * {@link DataType} combo.
-     */
-    private void registerFitnessDataListener(DataSource dataSource, DataType dataType) {
-        mListener = new OnDataPointListener() {
-            @Override
-            public void onDataPoint(DataPoint dataPoint) {
-                for (Field field : dataPoint.getDataType().getFields()) {
-                    Value val = dataPoint.getValue(field);
-                    Log.i(TAG, "Detected DataPoint field: " + field.getName());
-                    Log.i(TAG, "Detected DataPoint value: " + val);
-                }
-            }
-        };
-
-        Fitness.SensorsApi.add(
-                mGoogleApiFitnessClient,
-                new SensorRequest.Builder()
-                        .setDataSource(dataSource) // Optional but recommended for custom data sets.
-                        .setDataType(dataType) // Can't be omitted.
-                        .setSamplingRate(10, TimeUnit.SECONDS)
-                        .build(),
-                mListener)
-                .setResultCallback(new ResultCallback<Status>() {
-                    @Override
-                    public void onResult(Status status) {
-                        if (status.isSuccess()) {
-                            Log.i(TAG, "Listener registered!");
-                        } else {
-                            Log.i(TAG, "Listener not registered.");
-                        }
-                    }
-                });
-
-    }
-
-    /**
-     * Unregister the listener with the Sensors API.
-     */
-    private void unregisterFitnessDataListener() {
-        if (mListener == null) {
-            return;
-        }
-
-        Fitness.SensorsApi.remove(
-                mGoogleApiFitnessClient,
-                mListener)
-                .setResultCallback(new ResultCallback<Status>() {
-                    @Override
-                    public void onResult(Status status) {
-                        if (status.isSuccess()) {
-                            Log.i(TAG, "Listener was removed!");
-                        } else {
-                            Log.i(TAG, "Listener was not removed.");
-                        }
-                    }
-                });
-        // [END unregister_data_listener]
-    }
 
     /**
      * Subscribe to an available {@link DataType}. Subscriptions can exist across application
@@ -460,35 +351,12 @@ protected void publishTodaysStepData(int totalSteps) {
     }
 
     /**
-     * Fetch a list of all active subscriptions and log it. Since the logger for this sample
-     * also prints to the screen, we can see what is happening in this way.
-     */
-    private void dumpSubscriptionsList() {
-        // [START list_current_subscriptions]
-        Fitness.RecordingApi.listSubscriptions(mGoogleApiFitnessClient, DataType.TYPE_STEP_COUNT_DELTA)
-                // Create the callback to retrieve the list of subscriptions asynchronously.
-                .setResultCallback(new ResultCallback<ListSubscriptionsResult>() {
-                    @Override
-                    public void onResult(ListSubscriptionsResult listSubscriptionsResult) {
-                        for (Subscription sc : listSubscriptionsResult.getSubscriptions()) {
-                            DataType dt = sc.getDataType();
-                            Log.i(TAG, "Active subscription for data type: " + dt.getName());
-                        }
-                    }
-                });
-        // [END list_current_subscriptions]
-    }
-
-    /**
      * Cancel the ACTIVITY_SAMPLE subscription by calling unsubscribe on that {@link DataType}.
      */
     protected void cancelSubscription() {
         final String dataTypeStr = DataType.TYPE_ACTIVITY_SAMPLE.toString();
         Log.i(TAG, "Unsubscribing from data type: " + dataTypeStr);
 
-        // Invoke the Recording API to unsubscribe from the data type and specify a callback that
-        // will check the result.
-        // [START unsubscribe_from_datatype]
         Fitness.RecordingApi.unsubscribe(mGoogleApiFitnessClient, DataType.TYPE_ACTIVITY_SAMPLE)
                 .setResultCallback(new ResultCallback<Status>() {
                     @Override
@@ -501,8 +369,163 @@ protected void publishTodaysStepData(int totalSteps) {
                         }
                     }
                 });
-        // [END unsubscribe_from_datatype]
+
     }
 
+
+    /* Activity Recognition API methods start  */
+    private void requestActivityUpdates() {
+        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(
+                mGoogleApiFitnessClient,
+                Constants.DETECTION_INTERVAL_IN_MILLISECONDS,
+                getActivityDetectionPendingIntent()
+        ).setResultCallback(this );
+    }
+
+    private PendingIntent getActivityDetectionPendingIntent() {
+        // Reuse the PendingIntent if we already have it.
+        if (mActivityDetectionPendingIntent != null) {
+            return mActivityDetectionPendingIntent;
+        }
+        Intent intent = new Intent(this, DetectedActivitiesIntentService.class);
+
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
+        // requestActivityUpdates() and removeActivityUpdates().
+        return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    /**
+     * Runs when the result of calling requestActivityUpdates() and removeActivityUpdates() becomes
+     * available. Either method can complete successfully or with an error.
+     *
+     * @param status The Status returned through a PendingIntent when requestActivityUpdates()
+     *               or removeActivityUpdates() are called.
+     */
+    @Override
+    public void onResult(Status status) {
+        if (status.isSuccess()) {
+            Toast.makeText(this,"Activity Detection Added" , Toast.LENGTH_SHORT).show();
+        } else {
+            Log.e(TAG, "Error adding or removing activity detection: " + status.getStatusMessage());
+        }
+
+    }
+    /* Activity Recognition API methods end  */
+
+
+//    private void findFitnessDataSources() {
+//        // [START find_data_sources]
+//        Fitness.SensorsApi.findDataSources(mGoogleApiFitnessClient, new DataSourcesRequest.Builder()
+//                .setDataTypes(
+//                        DataType.TYPE_LOCATION_SAMPLE,
+//                        DataType.TYPE_STEP_COUNT_DELTA,
+//                        DataType.TYPE_DISTANCE_DELTA,
+//                        DataType.TYPE_HEART_RATE_BPM)
+//                .setDataSourceTypes(DataSource.TYPE_RAW, DataSource.TYPE_DERIVED)
+//                .build())
+//                .setResultCallback(new ResultCallback<DataSourcesResult>() {
+//                    @Override
+//                    public void onResult(DataSourcesResult dataSourcesResult) {
+//                        Log.i(TAG, " findFitnessDataSources Result: " + dataSourcesResult.getStatus().toString() + String.valueOf(dataSourcesResult.getDataSources().size()));
+//                        for (DataSource dataSource : dataSourcesResult.getDataSources()) {
+//                            Log.i(TAG, "findFitnessDataSources Data source found: " + dataSource.toString());
+//                            Log.i(TAG, "findFitnessDataSources Data Source type: " + dataSource.getDataType().getName());
+//                            //Let's register a listener to receive Activity data!
+//                            if (dataSource.getDataType().equals(DataType.TYPE_STEP_COUNT_DELTA)
+//                                    && mListener == null) {
+//                                Log.i(TAG, "findFitnessDataSources Data source for LOCATION_SAMPLE found!  Registering.");
+//                                registerFitnessDataListener(dataSource,
+//                                        DataType.TYPE_STEP_COUNT_DELTA);
+//                            }
+//                        }
+//                    }
+//                });
+//        // [END find_data_sources]
+//    }
+    /**
+     * Register a listener with the Sensors API for the provided {@link DataSource} and
+     * {@link DataType} combo.
+     */
+//    private void registerFitnessDataListener(DataSource dataSource, DataType dataType) {
+//        mListener = new OnDataPointListener() {
+//            @Override
+//            public void onDataPoint(DataPoint dataPoint) {
+//                for (Field field : dataPoint.getDataType().getFields()) {
+//                    Value val = dataPoint.getValue(field);
+//                    Log.i(TAG, "Detected DataPoint field: " + field.getName());
+//                    Log.i(TAG, "Detected DataPoint value: " + val);
+//                }
+//            }
+//        };
+//
+//        Fitness.SensorsApi.add(
+//                mGoogleApiFitnessClient,
+//                new SensorRequest.Builder()
+//                        .setDataSource(dataSource) // Optional but recommended for custom data sets.
+//                        .setDataType(dataType) // Can't be omitted.
+//                        .setSamplingRate(10, TimeUnit.SECONDS)
+//                        .build(),
+//                mListener)
+//                .setResultCallback(new ResultCallback<Status>() {
+//                    @Override
+//                    public void onResult(Status status) {
+//                        if (status.isSuccess()) {
+//                            Log.i(TAG, "Listener registered!");
+//                        } else {
+//                            Log.i(TAG, "Listener not registered.");
+//                        }
+//                    }
+//                });
+//
+//    }
+
+    /**
+     * Unregister the listener with the Sensors API.
+     */
+//    private void unregisterFitnessDataListener() {
+//        if (mListener == null) {
+//            return;
+//        }
+//
+//        Fitness.SensorsApi.remove(
+//                mGoogleApiFitnessClient,
+//                mListener)
+//                .setResultCallback(new ResultCallback<Status>() {
+//                    @Override
+//                    public void onResult(Status status) {
+//                        if (status.isSuccess()) {
+//                            Log.i(TAG, "Listener was removed!");
+//                        } else {
+//                            Log.i(TAG, "Listener was not removed.");
+//                        }
+//                    }
+//                });
+//        // [END unregister_data_listener]
+//    }
+
+
+
+
+
+
+//    /**
+//     * Fetch a list of all active subscriptions and log it. Since the logger for this sample
+//     * also prints to the screen, we can see what is happening in this way.
+//     */
+//    private void dumpSubscriptionsList() {
+//        // [START list_current_subscriptions]
+//        Fitness.RecordingApi.listSubscriptions(mGoogleApiFitnessClient, DataType.TYPE_STEP_COUNT_DELTA)
+//                // Create the callback to retrieve the list of subscriptions asynchronously.
+//                .setResultCallback(new ResultCallback<ListSubscriptionsResult>() {
+//                    @Override
+//                    public void onResult(ListSubscriptionsResult listSubscriptionsResult) {
+//                        for (Subscription sc : listSubscriptionsResult.getSubscriptions()) {
+//                            DataType dt = sc.getDataType();
+//                            Log.i(TAG, "Active subscription for data type: " + dt.getName());
+//                        }
+//                    }
+//                });
+//        // [END list_current_subscriptions]
+//    }
 
 }

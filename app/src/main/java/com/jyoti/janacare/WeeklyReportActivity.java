@@ -48,14 +48,14 @@ public class WeeklyReportActivity extends ActionBarActivity {
         getSupportActionBar().setTitle("Weekly Report");
         getWeeklyReport();
         
-        LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(GoogleFitService.HISTORY_INTENT));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(Constants.HISTORY_INTENT));
 
     }
 
     private void getWeeklyReport() {
         progressBar.setVisibility(View.VISIBLE);
         Intent service = new Intent(this, GoogleFitService.class);
-        service.putExtra(GoogleFitService.SERVICE_REQUEST_TYPE, GoogleFitService.TYPE_WEEKLY_STEP_COUNT);
+        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_WEEKLY_STEP_COUNT);
         startService(service);
     }
 
@@ -95,9 +95,9 @@ public class WeeklyReportActivity extends ActionBarActivity {
 
             progressBar.setVisibility(View.GONE);
             findViewById(R.id.weekly_title_text).setVisibility(View.VISIBLE);
-            if (intent.hasExtra(GoogleFitService.HISTOY_EXTRA_STEPS_WEEK_SUMMARY)) {
+            if (intent.hasExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY)) {
 
-                ArrayList<WeekStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(GoogleFitService.HISTOY_EXTRA_STEPS_WEEK_SUMMARY);
+                ArrayList<WeekStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY);
                 weeklyrecordAdapter.clear();
                 for(WeekStepSummaryRecord t:stepRecordList) {
                     weeklyrecordAdapter.add(t);
