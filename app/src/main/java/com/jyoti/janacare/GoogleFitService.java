@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 
 public class GoogleFitService extends IntentService implements  ResultCallback<Status>{
-
+    private static int steps=0;
     public static final String TAG = "GoogleFitService";
     public static GoogleApiClient mGoogleApiFitnessClient;
     private PendingIntent mActivityDetectionPendingIntent;
@@ -126,7 +126,8 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
 
     public static int getStepCountBetweenInterval(long startTime,long endTime)
     {
-        connectGoogleApiClient();
+        mGoogleApiFitnessClient.connect();
+        //connectGoogleApiClient();
         int totalSteps = 0;
         final DataReadRequest readRequest = new DataReadRequest.Builder()
                 .read(DataType.TYPE_STEP_COUNT_DELTA)

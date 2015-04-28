@@ -330,7 +330,7 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onDestroy() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mFitStatusReceiver);
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(mFitDataReceiver);
+        //LocalBroadcastManager.getInstance(this).unregisterReceiver(mFitDataReceiver);
         super.onDestroy();
     }
 

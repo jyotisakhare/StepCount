@@ -47,6 +47,9 @@ public class DetectedActivitiesIntentService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
+        Intent service = new Intent(this, GoogleFitService.class);
+        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_REQUEST_CONNECTION);
+        startService(service);
     }
 
     /**
