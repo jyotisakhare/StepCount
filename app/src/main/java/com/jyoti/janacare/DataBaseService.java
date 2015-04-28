@@ -69,12 +69,14 @@ public class DataBaseService extends SQLiteOpenHelper {
 
     public synchronized Boolean addWeeklyEntry(WeekStepSummaryRecord entry) {
         try {
+            SimpleDateFormat dateFormate = new SimpleDateFormat("yyyy.MM.dd");
+            Date now = new Date();
             SQLiteDatabase db = this.getWritableDatabase();
             ContentValues values = new ContentValues();
-            DateFormat dateform = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            //DateFormat dateform = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             values.put(WeeklyEntry.COLUMN_DATE, entry.getDate());
             values.put(WeeklyEntry.COLUMN_STEPS, entry.getSteps());
-            db.insert(WeeklyEntry.TABLE_NAME, null, values);
+            db.update(WeeklyEntry.TABLE_NAME, values, WeeklyEntry.COLUMN_DATE+ "=?",new String[]{dateFormate.format(now)});
             db.close();
             return true;
         } catch (Exception e) {
@@ -109,14 +111,14 @@ public class DataBaseService extends SQLiteOpenHelper {
         try {
             SQLiteDatabase db = this.getReadableDatabase();
             DateFormat dateform = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-            Cursor cursor = db.query(WeeklyEntry.TABLE_NAME, new String[]{WeeklyEntry.COLUMN_STEPS, WeeklyEntry.COLUMN_DATE}, null, null, null, null, WeeklyEntry._ID + "DESC", "7");
+            Cursor cursor = db.query(WeeklyEntry.TABLE_NAME, new String[]{WeeklyEntry.COLUMN_STEPS, WeeklyEntry.COLUMN_DATE}, null, null, null, null, WeeklyEntry._ID + " DESC ", " 7");
             //int size=cursor.getCount();
-            if (cursor != null) {
-                while (!cursor.isAfterLast()){
+            if (cursor != null && cursor.moveToFirst()){
+                do {
                     WeekStepSummaryRecord entry = new WeekStepSummaryRecord(cursor.getString(1),cursor.getInt(0));
                     weekRecordList.add(entry);
                     cursor.moveToNext();
-                }
+                }while (cursor.moveToNext());
             }
 
         } catch (Exception e) {
@@ -128,24 +130,27 @@ public class DataBaseService extends SQLiteOpenHelper {
 
     public List<TodayStepSummaryRecord> getDailyEntries() {
         //todo write where condition here
+        DateFormat dateformat = new SimpleDateFormat("yyyy-MM-dd");
         List<TodayStepSummaryRecord> todayRecordList = new ArrayList<TodayStepSummaryRecord>();
         try {
             SQLiteDatabase db = this.getReadableDatabase();
-            DateFormat dateform = new SimpleDateFormat("yyyy-MM-dd");
-            Cursor cursor = db.query(DailyEntry.TABLE_NAME, new String[]{DailyEntry.COLUMN_STEPS, DailyEntry.COLUMN_START_TIME,DailyEntry.COLUMN_END_TIME,DailyEntry.COLUMN_NOTIFY_USER},
-                    //DailyEntry.COLUMN_DATE  + "= ' " + dateform.format(new Date())  + " '",
+            DateFormat dateform = new SimpleDateFormat("HH:mm");
+            Cursor cursor = db.query(false,DailyEntry.TABLE_NAME, new String[]{DailyEntry.COLUMN_STEPS, DailyEntry.COLUMN_START_TIME,DailyEntry.COLUMN_END_TIME,DailyEntry.COLUMN_NOTIFY_USER},
+                    DailyEntry.COLUMN_DATE  + "= ?  " , new String[] {dateformat.format(new Date())},
                     null,null, null, null,null);
             //int size=cursor.getCount();
-            cursor.moveToFirst();
-           while (cursor != null){
-                    TodayStepSummaryRecord entry = new TodayStepSummaryRecord(cursor.getInt(0),cursor.getString(1),cursor.getString(2),cursor.getInt(3));
-                    todayRecordList.add(entry);
-                    cursor.moveToNext();
-                }
+            //cursor.moveToFirst();
+            if (cursor != null && cursor.moveToFirst()){
+            do {
+                TodayStepSummaryRecord entry = new TodayStepSummaryRecord(cursor.getInt(0),cursor.getString(1),cursor.getString(2),cursor.getInt(3));
+                todayRecordList.add(entry);
+            } while (cursor.moveToNext());
+             }
+
 
 
         } catch (Exception e) {
-            Log.d(TAG,e.getMessage());
+           // Log.d(TAG,e.getMessage());
             e.printStackTrace();
         }
         return todayRecordList;

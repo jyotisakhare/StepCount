@@ -31,8 +31,8 @@ private static int maxCacheSize;
         this.setAppContext(getApplicationContext());
         maxMemorySize = Runtime.getRuntime().maxMemory();
         maxCacheSize = (int)(maxMemorySize / 8);
-
         DiskCacheService.initialize(getApplicationContext());
+
 
     }
 

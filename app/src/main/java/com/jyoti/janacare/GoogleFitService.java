@@ -22,9 +22,13 @@ import com.google.android.gms.fitness.data.DataSet;
 import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.data.DataType;
 import com.google.android.gms.fitness.data.Field;
+import com.google.android.gms.fitness.data.Value;
 import com.google.android.gms.fitness.request.DataReadRequest;
+import com.google.android.gms.fitness.request.DataSourcesRequest;
 import com.google.android.gms.fitness.request.OnDataPointListener;
+import com.google.android.gms.fitness.request.SensorRequest;
 import com.google.android.gms.fitness.result.DataReadResult;
+import com.google.android.gms.fitness.result.DataSourcesResult;
 import com.google.android.gms.location.ActivityRecognition;
 import com.jyoti.janacare.models.TodayStepSummaryRecord;
 import com.jyoti.janacare.models.WeekStepSummaryRecord;
@@ -45,10 +49,10 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
     public static boolean mTryingToConnect = false;
 
     private OnDataPointListener mListener;
-    @Override
-    public void onDestroy() {
-      super.onDestroy();
-    }
+//    @Override
+//    public void onDestroy() {
+//      super.onDestroy();
+//    }
 
     @Override
     public void onCreate() {
@@ -98,6 +102,8 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
                 long starTime = intent.getLongExtra("startTime", 0);
                 long endTime = intent.getLongExtra("endTime",0);
                 getStepCountBetweenInterval(starTime,endTime);
+            }else if(type == Constants.TYPE_REMOVE_ACTIVITY_DETECTION){
+                removeActivityUpdates();
             }
         } else {
             //Not connected
@@ -114,7 +120,7 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         long startTime = cal.getTimeInMillis();
-        int totalSteps = getStepCountBetweenInterval(startTime,endTime);
+        int totalSteps = getStepCountBetweenInterval(startTime, endTime);
         publishTodaysStepData(totalSteps);
     }
 
@@ -135,6 +141,7 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
                 totalSteps += steps;
             }
         }
+
         return totalSteps;
     }
     private List<TodayStepSummaryRecord> getStepCountSummaryForADay(){
@@ -269,7 +276,7 @@ protected void publishTodaysStepData(int totalSteps) {
                                 Log.d(TAG, "Notifying the UI that we're connected.");
                                 //find all the data sources for which we can receive data
                                 // add above scopes in googleAPIClient bUilder method
-                                //findFitnessDataSources();
+                                findFitnessDataSources();
                                 //subscribe to recording API to store steps delta
                                 subscribe();
                                 //detecting activities like still walking running
@@ -379,7 +386,7 @@ protected void publishTodaysStepData(int totalSteps) {
                 mGoogleApiFitnessClient,
                 Constants.DETECTION_INTERVAL_IN_MILLISECONDS,
                 getActivityDetectionPendingIntent()
-        ).setResultCallback(this );
+        ).setResultCallback(this);
     }
 
     private PendingIntent getActivityDetectionPendingIntent() {
@@ -393,7 +400,23 @@ protected void publishTodaysStepData(int totalSteps) {
         // requestActivityUpdates() and removeActivityUpdates().
         return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
-
+    public void removeActivityUpdates() {
+        if (!mGoogleApiFitnessClient.isConnected()) {
+            Toast.makeText(this,"activity detection removed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Remove all activity updates for the PendingIntent that was used to request activity
+        // updates.
+        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(
+                mGoogleApiFitnessClient,
+                getActivityDetectionPendingIntent()
+        ).setResultCallback(new ResultCallback<Status>() {
+            @Override
+            public void onResult(Status status) {
+                Log.d(TAG,"activity detection removed");
+            }
+        });
+    }
     /**
      * Runs when the result of calling requestActivityUpdates() and removeActivityUpdates() becomes
      * available. Either method can complete successfully or with an error.
@@ -413,71 +436,74 @@ protected void publishTodaysStepData(int totalSteps) {
     /* Activity Recognition API methods end  */
 
 
-//    private void findFitnessDataSources() {
-//        // [START find_data_sources]
-//        Fitness.SensorsApi.findDataSources(mGoogleApiFitnessClient, new DataSourcesRequest.Builder()
-//                .setDataTypes(
-//                        DataType.TYPE_LOCATION_SAMPLE,
-//                        DataType.TYPE_STEP_COUNT_DELTA,
-//                        DataType.TYPE_DISTANCE_DELTA,
-//                        DataType.TYPE_HEART_RATE_BPM)
-//                .setDataSourceTypes(DataSource.TYPE_RAW, DataSource.TYPE_DERIVED)
-//                .build())
-//                .setResultCallback(new ResultCallback<DataSourcesResult>() {
-//                    @Override
-//                    public void onResult(DataSourcesResult dataSourcesResult) {
-//                        Log.i(TAG, " findFitnessDataSources Result: " + dataSourcesResult.getStatus().toString() + String.valueOf(dataSourcesResult.getDataSources().size()));
-//                        for (DataSource dataSource : dataSourcesResult.getDataSources()) {
-//                            Log.i(TAG, "findFitnessDataSources Data source found: " + dataSource.toString());
-//                            Log.i(TAG, "findFitnessDataSources Data Source type: " + dataSource.getDataType().getName());
-//                            //Let's register a listener to receive Activity data!
-//                            if (dataSource.getDataType().equals(DataType.TYPE_STEP_COUNT_DELTA)
-//                                    && mListener == null) {
-//                                Log.i(TAG, "findFitnessDataSources Data source for LOCATION_SAMPLE found!  Registering.");
-//                                registerFitnessDataListener(dataSource,
-//                                        DataType.TYPE_STEP_COUNT_DELTA);
-//                            }
-//                        }
-//                    }
-//                });
-//        // [END find_data_sources]
-//    }
+    private void findFitnessDataSources() {
+        // [START find_data_sources]
+        Fitness.SensorsApi.findDataSources(mGoogleApiFitnessClient, new DataSourcesRequest.Builder()
+                .setDataTypes(
+                        DataType.TYPE_LOCATION_SAMPLE,
+                        DataType.TYPE_STEP_COUNT_DELTA,
+                        DataType.TYPE_DISTANCE_DELTA,
+                        DataType.TYPE_HEART_RATE_BPM)
+                .setDataSourceTypes(DataSource.TYPE_RAW, DataSource.TYPE_DERIVED)
+                .build())
+                .setResultCallback(new ResultCallback<DataSourcesResult>() {
+                    @Override
+                    public void onResult(DataSourcesResult dataSourcesResult) {
+                        Log.i(TAG, " findFitnessDataSources Result: " + dataSourcesResult.getStatus().toString() + String.valueOf(dataSourcesResult.getDataSources().size()));
+                        for (DataSource dataSource : dataSourcesResult.getDataSources()) {
+                            //Log.i(TAG, "findFitnessDataSources Data source found: " + dataSource.toString());
+                            //Log.i(TAG, "findFitnessDataSources Data Source type: " + dataSource.getDataType().getName());
+                            //Let's register a listener to receive Activity data!
+                            if (dataSource.getDataType().equals(DataType.TYPE_STEP_COUNT_DELTA)
+                                    && mListener == null) {
+                                //Log.i(TAG, "findFitnessDataSources Data source for LOCATION_SAMPLE found!  Registering.");
+                                registerFitnessDataListener(dataSource,
+                                        DataType.TYPE_STEP_COUNT_DELTA);
+                            }
+                        }
+                    }
+                });
+        // [END find_data_sources]
+    }
     /**
      * Register a listener with the Sensors API for the provided {@link DataSource} and
      * {@link DataType} combo.
      */
-//    private void registerFitnessDataListener(DataSource dataSource, DataType dataType) {
-//        mListener = new OnDataPointListener() {
-//            @Override
-//            public void onDataPoint(DataPoint dataPoint) {
-//                for (Field field : dataPoint.getDataType().getFields()) {
-//                    Value val = dataPoint.getValue(field);
-//                    Log.i(TAG, "Detected DataPoint field: " + field.getName());
-//                    Log.i(TAG, "Detected DataPoint value: " + val);
-//                }
-//            }
-//        };
-//
-//        Fitness.SensorsApi.add(
-//                mGoogleApiFitnessClient,
-//                new SensorRequest.Builder()
-//                        .setDataSource(dataSource) // Optional but recommended for custom data sets.
-//                        .setDataType(dataType) // Can't be omitted.
-//                        .setSamplingRate(10, TimeUnit.SECONDS)
-//                        .build(),
-//                mListener)
-//                .setResultCallback(new ResultCallback<Status>() {
-//                    @Override
-//                    public void onResult(Status status) {
-//                        if (status.isSuccess()) {
-//                            Log.i(TAG, "Listener registered!");
-//                        } else {
-//                            Log.i(TAG, "Listener not registered.");
-//                        }
-//                    }
-//                });
-//
-//    }
+    private void registerFitnessDataListener(DataSource dataSource, DataType dataType) {
+        mListener = new OnDataPointListener() {
+            @Override
+            public void onDataPoint(DataPoint dataPoint) {
+                for (Field field : dataPoint.getDataType().getFields()) {
+                    Value val = dataPoint.getValue(field);
+                    Intent service = new Intent(GoogleFitService.this, DetectedActivitiesIntentService.class);
+                    service.putExtra("walking", 1);
+                    startService(service);
+                    Log.i(TAG, "Detected DataPoint field: " + field.getName());
+                    Log.i(TAG, "Detected DataPoint value: " + val);
+                }
+            }
+        };
+
+        Fitness.SensorsApi.add(
+                mGoogleApiFitnessClient,
+                new SensorRequest.Builder()
+                        .setDataSource(dataSource) // Optional but recommended for custom data sets.
+                        .setDataType(dataType) // Can't be omitted.
+                        .setSamplingRate(10, TimeUnit.SECONDS)
+                        .build(),
+                mListener)
+                .setResultCallback(new ResultCallback<Status>() {
+                    @Override
+                    public void onResult(Status status) {
+                        if (status.isSuccess()) {
+                            Log.i(TAG, "Listener registered!");
+                        } else {
+                            Log.i(TAG, "Listener not registered.");
+                        }
+                    }
+                });
+
+    }
 
     /**
      * Unregister the listener with the Sensors API.

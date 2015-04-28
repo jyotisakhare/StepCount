@@ -22,12 +22,10 @@ import android.view.View;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.fitness.FitnessStatusCodes;
 import com.jyoti.janacare.models.TodayStepSummaryRecord;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -39,6 +37,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.Timer;
 import java.util.concurrent.TimeUnit;
 
 
@@ -51,7 +50,9 @@ public class MainActivity extends ActionBarActivity {
     private static final int REQUEST_OAUTH = 1431;
     private TextView step_count,inactive_time,goal_percent;
     private ListView todayStepCountList;
+    private ListView todayStepCountListCache;
     private  TodayStepRecordAdapter todayStepRecordAdapter;
+    private  TodayStepRecordAdapter todayStepRecordAdapterCache;
     static int totalSteps=0;
     SharedPreferences pref;
     @Override
@@ -59,10 +60,13 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         progressBar=(ProgressBar)findViewById(R.id.progressBar);
-        todayStepCountList = (ListView)findViewById(R.id.today_step_count_list);
+        //todayStepCountList = (ListView)findViewById(R.id.today_step_count_list);
+        todayStepCountListCache = (ListView)findViewById(R.id.today_step_count_list_from_cache);
         List<TodayStepSummaryRecord> list = new ArrayList<TodayStepSummaryRecord>();
         todayStepRecordAdapter = new TodayStepRecordAdapter(this,R.layout.today_step_count_row,list);
-        todayStepCountList.setAdapter(todayStepRecordAdapter);
+        todayStepRecordAdapterCache = new TodayStepRecordAdapter(this,R.layout.today_step_count_row,list);
+        //todayStepCountList.setAdapter(todayStepRecordAdapter);
+        todayStepCountListCache.setAdapter(todayStepRecordAdapterCache);
         step_count =  (TextView)findViewById(R.id.step_count);
         inactive_time = (TextView)findViewById(R.id.inactvie_time);
         goal_percent = (TextView)findViewById(R.id.goal_percent);
@@ -72,13 +76,55 @@ public class MainActivity extends ActionBarActivity {
             authInProgress = savedInstanceState.getBoolean(AUTH_PENDING);
         }
 
+        //loading cache data
+        getTodayStepSummary();
+
 
         LocalBroadcastManager.getInstance(this).registerReceiver(mFitStatusReceiver, new IntentFilter(Constants.FIT_NOTIFY_INTENT));
-        LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(Constants.HISTORY_INTENT));
+        //LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(Constants.HISTORY_INTENT));
 
         requestFitConnection();
 
     }
+
+    private void getTodayStepSummary() {
+        progressBar.setVisibility(View.GONE);
+        Calendar cal = Calendar.getInstance();
+        Date now= new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        long time=0;
+        dateFormat.format(now);
+        cal.setTime(now);
+        totalSteps=0;
+       todayStepRecordAdapterCache.clear();
+        List<TodayStepSummaryRecord> stepRecordListcache = DiskCacheService.getDailyEntries();
+        Log.d("cache size",stepRecordListcache.size()+"");
+        for (TodayStepSummaryRecord t : stepRecordListcache){
+            totalSteps += t.getSteps();
+            try {
+                time += dateFormat.parse(t.getEndTime()).getTime() - dateFormat.parse(t.getStartTime()).getTime();
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+            Log.d("cache data",t.toString());
+            todayStepRecordAdapterCache.add(new TodayStepSummaryRecord(t.getSteps(), t.getStartTime(), t.getEndTime()));
+        }
+
+        step_count.setText("Total Steps today: " + totalSteps + " in " + TimeUnit.MILLISECONDS.toHours(time) +":"+(TimeUnit.MILLISECONDS.toMinutes(time))%60);
+        long min=0;
+        if(now.getMinutes() < (TimeUnit.MILLISECONDS.toMinutes(time))%60){
+            min = now.getMinutes();
+        }else {
+            min = (now.getMinutes()-(TimeUnit.MILLISECONDS.toMinutes(time))%60);
+        }
+        inactive_time.setText("Total inactive Time : " + (now.getHours() - TimeUnit.MILLISECONDS.toHours(time)) + ":" +
+                min);
+        float goal = Float.parseFloat(pref.getString(getString(R.string.pref_goal_key), getString(R.string.pref_goal_default)));
+        float goal_per = ((float)totalSteps/goal)*100;
+        goal_percent.setText("You completed " + Math.round(goal_per) + "% of your goal");
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
@@ -90,7 +136,8 @@ public class MainActivity extends ActionBarActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_refresh) {
-            handleGetStepsButton();
+            getTodayStepSummary();
+            //handleGetStepsButton();
             return true;
         }else if(id == R.id.action_share){
             createShareForecastIntent();
@@ -104,6 +151,10 @@ public class MainActivity extends ActionBarActivity {
             Intent intent = new Intent(this,WeeklyReportActivity.class);
             startActivity(intent);
             return true;
+        }else  if(id == R.id.action_remove_activity_updates){
+            Intent service = new Intent(this, GoogleFitService.class);
+            service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_REMOVE_ACTIVITY_DETECTION);
+            startService(service);
         }
         return super.onOptionsItemSelected(item);
     }
@@ -127,7 +178,7 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void handleGetStepsButton() {
-        progressBar.setVisibility(View.VISIBLE);
+        //progressBar.setVisibility(View.VISIBLE);
         Intent service = new Intent(this, GoogleFitService.class);
         service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_GET_STEP_TODAY_DATA);
         startService(service);
@@ -169,13 +220,13 @@ public class MainActivity extends ActionBarActivity {
             dateFormat.format(now);
             cal.setTime(now);
 
-             progressBar.setVisibility(View.GONE);
-            findViewById(R.id.main_title_text).setVisibility(View.VISIBLE);
+             //progressBar.setVisibility(View.GONE);
+            //findViewById(R.id.main_title_text).setVisibility(View.VISIBLE);
             if (intent.hasExtra(Constants.HISTORY_EXTRA_STEPS_TODAY)) {
 
                 totalSteps = intent.getIntExtra(Constants.HISTORY_EXTRA_STEPS_TODAY, 0);
                 ArrayList<TodayStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_TODAY_SUMMARY);
-                todayStepRecordAdapter.clear();
+               // todayStepRecordAdapter.clear();
                 for(TodayStepSummaryRecord t:stepRecordList) {
                     try {
                          time += dateFormat.parse(t.getEndTime()).getTime() - dateFormat.parse(t.getStartTime()).getTime();
@@ -184,9 +235,10 @@ public class MainActivity extends ActionBarActivity {
                     catch (ParseException e) {
                         e.printStackTrace();
                     }
-                         Log.d(TAG,t.toString());
-                    todayStepRecordAdapter.add(t);
+                         Log.d(TAG, t.toString());
+                   // todayStepRecordAdapter.add(t);
                 }
+
                 step_count.setText("Total Steps today: " + totalSteps + " in " + TimeUnit.MILLISECONDS.toHours(time) +":"+(TimeUnit.MILLISECONDS.toMinutes(time))%60);
                 long min=0;
                 if(now.getMinutes() < (TimeUnit.MILLISECONDS.toMinutes(time))%60){
@@ -209,6 +261,7 @@ public class MainActivity extends ActionBarActivity {
     private void fitHandleConnection() {
         //Toast.makeText(this, "Fit connected", Toast.LENGTH_SHORT).show();
         progressBar.setVisibility(View.GONE);
+        initializeTimerTaskToUpdateDB();
         handleGetStepsButton();
     }
 
@@ -313,5 +366,17 @@ public class MainActivity extends ActionBarActivity {
         return imagePath;
     }
 
+
+    private void initializeTimerTaskToUpdateDB() {
+        Log.d("timer","scheduling timer task");
+        long ONCE_PER_DAY = 1000*60*60*24;
+        Date date12am = new Date();
+        date12am.setHours(23);
+        date12am.setMinutes(59);
+        UpdateDailyStepsToDB timerTask = new UpdateDailyStepsToDB();
+        Timer timer = new Timer();
+        timer.schedule(timerTask,date12am,ONCE_PER_DAY);
+        Log.d("timer", date12am.toString());
+    }
 
 }

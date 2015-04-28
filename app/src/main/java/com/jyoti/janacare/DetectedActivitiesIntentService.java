@@ -2,9 +2,12 @@
 package com.jyoti.janacare;
 
 import android.app.IntentService;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.google.android.gms.location.ActivityRecognitionResult;
 import com.google.android.gms.location.DetectedActivity;
@@ -25,12 +28,13 @@ public class DetectedActivitiesIntentService extends IntentService {
     private static long  startTime = 0;
     private static long endTime = 0;
     private static int stepsToNotify = 0;
-    static  SimpleDateFormat dateFormat = new SimpleDateFormat(Constants.DATE_FORMAT);
+    private int totalSteps = 0;
+    static  SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm");
     protected static final String TAG = "detection-intent";
     static Calendar cal = Calendar.getInstance();
     //static Date now = new Date();
-    private static int timerToNotify = 180;
-    private static long inactiveTimer = 7200;
+    private static int timerToNotify = 10;
+    private static long inactiveTimer = 200;
     /**
      * This constructor is required, and calls the super IntentService(String)
      * constructor with the name for a worker thread.
@@ -52,12 +56,20 @@ public class DetectedActivitiesIntentService extends IntentService {
      */
     @Override
     protected void onHandleIntent(Intent intent) {
+        int walking = intent.getIntExtra("walking", 0);
+        if(walking == 1 && startTime == 0){
+            cal.setTime(new Date());
+            startTime = cal.getTimeInMillis();
+        }
         ActivityRecognitionResult result = ActivityRecognitionResult.extractResult(intent);
-        DetectedActivity detectedActivities =  result.getMostProbableActivity();
+        if(result != null) {
 
-        if(detectedActivities.getType()==DetectedActivity.STILL)
-        {
-            Log.d(TAG,"u are STILL");
+
+            DetectedActivity detectedActivities = result.getMostProbableActivity();
+
+            if (detectedActivities.getType() == DetectedActivity.STILL) {
+                //Toast.makeText(this, "u are STILL", Toast.LENGTH_LONG).show();
+                Log.d(TAG, "u are STILL");
             /* user is not moving
             * initialize endtime
             * calcutate steps betwen starttime and endtime
@@ -65,70 +77,107 @@ public class DetectedActivitiesIntentService extends IntentService {
             * intialize a to_notify_steps
             */
 
-            cal.setTime(new Date());
-            endTime = cal.getTimeInMillis();
-//            List<TodayStepSummaryRecord> list1 = DiskCacheService.getDailyEntries();
-//            for(TodayStepSummaryRecord t : list1){
-//                Log.d("records",t.toString());
-//            }
-            if(startTime != 0){
-                stepsToNotify += GoogleFitService.getStepCountBetweenInterval(startTime,endTime);
-                TodayStepSummaryRecord rec = new TodayStepSummaryRecord(stepsToNotify,dateFormat.format(startTime),dateFormat.format(endTime),0);
-                boolean status = DiskCacheService.addDailyEntry(rec);
-                if(status)
-                Log.d(TAG,stepsToNotify+" added to database");
-                List<TodayStepSummaryRecord> list = DiskCacheService.getDailyEntries();
-                for(TodayStepSummaryRecord t : list){
-                    Log.d("records",t.toString());
+                cal.setTime(new Date());
+                endTime = cal.getTimeInMillis();
+                if (startTime != 0) {
+
+                    totalSteps = GoogleFitService.getStepCountBetweenInterval(startTime, endTime);
+                    Log.d("detected", startTime + " " + endTime);
+                    if (totalSteps > 0) {
+                        TodayStepSummaryRecord rec = new TodayStepSummaryRecord(totalSteps, dateFormat.format(startTime), dateFormat.format(endTime), 0);
+                        boolean status = DiskCacheService.addDailyEntry(rec);
+                        if (status) {
+                            Log.d(TAG, totalSteps + " added to database");
+                            //Toast.makeText(this, "added to database", Toast.LENGTH_LONG).show();
+                        }
+                        List<TodayStepSummaryRecord> list = DiskCacheService.getDailyEntries();
+                        for (TodayStepSummaryRecord t : list) {
+                            Log.d("records", t.toString());
+                        }
+
+                    }
+                    stepsToNotify += totalSteps;
+                    startTime = 0;
                 }
-                startTime = 0;
-            }
 
-            timerToNotify -= 1;
-            if(timerToNotify == 0 && stepsToNotify > 0){
-                //todo notify user
-                //todo u just waled stepstonotify steps;
-                Toast.makeText(this, "u just walked "+stepsToNotify+" steps", Toast.LENGTH_LONG).show();
-                Log.d(TAG,"u just walked "+stepsToNotify+" steps");
-                stepsToNotify = 0;
-                timerToNotify = 180;
-            }
-            inactiveTimer--;
-            if(inactiveTimer == 0){
-                //todo notify user u are inactive from a long period of time
-                Toast.makeText(this, "u are inactive from a long period of time", Toast.LENGTH_LONG).show();
-                Log.d(TAG,"u are inactive from a long period of time");
-            }
+                timerToNotify -= 1;
+                if (timerToNotify == 0 && stepsToNotify > 0) {
+                    //todo notify user
+                    //todo u just waled stepstonotify steps;
+                    //Toast.makeText(this, "u just walked "+stepsToNotify+" steps", Toast.LENGTH_LONG).show();
+                    notify("you walked " + stepsToNotify + " steps");
+                    Log.d(TAG, "u just walked " + stepsToNotify + " steps");
+                    stepsToNotify = 0;
+                    timerToNotify = 10;
+                }
+                inactiveTimer--;
+                if (inactiveTimer == 0) {
+                    //todo notify user u are inactive from a long period of time
+                    notify("you are inactive from long time. \n ");
+                    //Toast.makeText(this, "u are inactive from a long period of time", Toast.LENGTH_LONG).show();
+                    Log.d(TAG, "u are inactive from a long period of time");
+                }
 
-        }
-        else if(detectedActivities.getType()==DetectedActivity.RUNNING  ||
-                 detectedActivities.getType()==DetectedActivity.WALKING ||
-                 detectedActivities.getType()==DetectedActivity.ON_FOOT)
-        {
-            Log.d(TAG,"u are ON_FOOT");
+            } else if (detectedActivities.getType() == DetectedActivity.RUNNING ||
+                    detectedActivities.getType() == DetectedActivity.WALKING ||
+                    detectedActivities.getType() == DetectedActivity.ON_FOOT) {
+                Log.d(TAG, "u are ON_FOOT");
+                //Toast.makeText(this, "u are ON_FOOT", Toast.LENGTH_LONG).show();
             /* user is running walking or on foot
             * initialize start time
             * */
-            timerToNotify = 180;//reset notification timer
-            if(startTime == 0) // once startTime started on walking dont update it ever time walking is recognized
-            {
-                cal.setTime(new Date());
-                startTime = cal.getTimeInMillis();
-                startTime -= 60000; //set the startTime one minute before so thatwe donot miss any updates
-            }
+                timerToNotify = 10;//reset notification timer
+                inactiveTimer = 200;
+                if (startTime == 0) // once startTime started on walking dont update it ever time walking is recognized
+                {
+                    cal.setTime(new Date());
+                    startTime = cal.getTimeInMillis();
+                    startTime -= 120000; //set the startTime one minute before so thatwe donot miss any updates
+                }
 
-        }else {
-            Log.d(TAG,"u are doing "+detectedActivities.getType());
-            if(startTime == 0) // once startTime started on walking dont update it ever time walking is recognized
-            {
-                cal.setTime(new Date());
-                startTime = cal.getTimeInMillis();
-                startTime -= 60000; //set the startTime one minute before so thatwe donot miss any updates
-            }
-            timerToNotify--;
-            inactiveTimer--;
+            } else {
+                Log.d(TAG, "u are doing " + detectedActivities.getType());
+                //Toast.makeText(this, "u are doing "+detectedActivities.getType(), Toast.LENGTH_LONG).show();
+                if (startTime == 0) // once startTime started on walking dont update it ever time walking is recognized
+                {
+                    cal.setTime(new Date());
+                    startTime = cal.getTimeInMillis();
+                    startTime -= 120000; //set the startTime one minute before so thatwe donot miss any updates
+                }
+                timerToNotify--;
+                inactiveTimer--;
 
+            }
+        }
+    }
+
+       private void  notify(String message)
+        {
+            String ns = Context.NOTIFICATION_SERVICE;
+            NotificationManager mNotificationManager = (NotificationManager) getSystemService(ns);
+
+
+            int icon = R.drawable.running_icon;
+            CharSequence tickerText = "Janacare";
+            long when = System.currentTimeMillis();
+
+            Notification notification = new Notification(icon,
+                    tickerText, when);
+            notification.flags |= Notification.FLAG_AUTO_CANCEL;
+            Context context = getApplicationContext();
+            CharSequence contentTitle = "Habbits";
+            CharSequence contentText = message;
+            Intent notificationIntent = new Intent(context,
+                    MainActivity.class);
+            PendingIntent contentIntent = PendingIntent
+                    .getActivity(context, 0, notificationIntent, 0);
+
+            notification.setLatestEventInfo(context, contentTitle,
+                    contentText, contentIntent);
+
+            mNotificationManager.notify(1, notification);
+            // Log.d("test", "Saving Data to File from Service.");
         }
 
-    }
+
 }

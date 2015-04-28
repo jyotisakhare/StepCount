@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -40,13 +39,19 @@ public class WeeklyReportActivity extends ActionBarActivity {
         setContentView(R.layout.activity_weekly_report);
         weeklyReportList = (ListView)findViewById(R.id.weekly_step_count_list);
         progressBar=(ProgressBar)findViewById(R.id.progressBar);
-        List<WeekStepSummaryRecord> list = new ArrayList<WeekStepSummaryRecord>();
-        weeklyrecordAdapter = new WeeklyReportAdapter(this,R.layout.weekly_step_count_row,list);
-        weeklyReportList.setAdapter(weeklyrecordAdapter);
+        //List<WeekStepSummaryRecord> list = new ArrayList<WeekStepSummaryRecord>();
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
         getSupportActionBar().setTitle("Weekly Report");
-        getWeeklyReport();
+        //ArrayList<WeekStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY);
+        List<WeekStepSummaryRecord> stepRecordList = DiskCacheService.getWeeKlyEntries();
+        weeklyrecordAdapter = new WeeklyReportAdapter(this,R.layout.weekly_step_count_row,stepRecordList);
+        weeklyReportList.setAdapter(weeklyrecordAdapter);
+//        weeklyrecordAdapter.clear();
+//        for(WeekStepSummaryRecord t:stepRecordList) {
+//            weeklyrecordAdapter.add(t);
+//        }
+        //getWeeklyReport();
         
         LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(Constants.HISTORY_INTENT));
 
@@ -97,7 +102,8 @@ public class WeeklyReportActivity extends ActionBarActivity {
             findViewById(R.id.weekly_title_text).setVisibility(View.VISIBLE);
             if (intent.hasExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY)) {
 
-                ArrayList<WeekStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY);
+                //ArrayList<WeekStepSummaryRecord> stepRecordList = intent.getParcelableArrayListExtra(Constants.HISTOY_EXTRA_STEPS_WEEK_SUMMARY);
+                List<WeekStepSummaryRecord> stepRecordList = DiskCacheService.getWeeKlyEntries();
                 weeklyrecordAdapter.clear();
                 for(WeekStepSummaryRecord t:stepRecordList) {
                     weeklyrecordAdapter.add(t);

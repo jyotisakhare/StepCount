@@ -13,7 +13,7 @@
         android:visibility="gone"/>
 
     <LinearLayout
-        android:visibility="gone"
+
         android:id="@+id/main_title_text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -73,9 +73,18 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
         <ListView
-            android:id="@+id/today_step_count_list"
+            android:id="@+id/today_step_count_list_from_cache"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="30dp">
         </ListView>
+
+        <!--<ListView-->
+            <!--android:id="@+id/today_step_count_list"-->
+            <!--android:layout_width="match_parent"-->
+            <!--android:layout_height="wrap_content"-->
+            <!--android:layout_marginBottom="30dp">-->
+        <!--</ListView>-->
     </LinearLayout>
+
 </RelativeLayout>

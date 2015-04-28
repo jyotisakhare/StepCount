@@ -4,7 +4,7 @@ package com.jyoti.janacare;
  * Created by jsakhare on 26/04/15.
  */
 public class Constants {
-    public static long DETECTION_INTERVAL_IN_MILLISECONDS=1000;
+    public static long DETECTION_INTERVAL_IN_MILLISECONDS=0;
 
     public static final String DATE_FORMAT = "yyyy.MM.dd HH:mm:ss";
     public static final String SERVICE_REQUEST_TYPE = "requestType";
@@ -13,6 +13,7 @@ public class Constants {
     public static final int TYPE_CANCLE_SUBCRIPTION = 3;
     public static final int TYPE_WEEKLY_STEP_COUNT = 4;
     public static final int TYPE_GET_STEP_COUNT_BETWEEN_INTERVAL = 5;
+    public static final int TYPE_REMOVE_ACTIVITY_DETECTION = 6;
     public static final String HISTORY_INTENT = "fitHistory";
     public static final String HISTORY_EXTRA_STEPS_TODAY = "stepsToday";
     public static final String HISTOY_EXTRA_STEPS_TODAY_SUMMARY ="stepsTodaySummary";
