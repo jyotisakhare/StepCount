@@ -126,6 +126,7 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
 
     public static int getStepCountBetweenInterval(long startTime,long endTime)
     {
+
         mGoogleApiFitnessClient.connect();
         //connectGoogleApiClient();
         int totalSteps = 0;

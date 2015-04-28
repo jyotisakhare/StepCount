@@ -1,4 +1,3 @@
-
 package com.jyoti.janacare;
 
 import android.app.IntentService;
@@ -47,9 +46,9 @@ public class DetectedActivitiesIntentService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
-        Intent service = new Intent(this, GoogleFitService.class);
-        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_REQUEST_CONNECTION);
-        startService(service);
+//        Intent service = new Intent(this, GoogleFitService.class);
+//        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_REQUEST_CONNECTION);
+//        startService(service);
     }
 
     /**
@@ -154,33 +153,33 @@ public class DetectedActivitiesIntentService extends IntentService {
         }
     }
 
-       private void  notify(String message)
-        {
-            String ns = Context.NOTIFICATION_SERVICE;
-            NotificationManager mNotificationManager = (NotificationManager) getSystemService(ns);
+    private void  notify(String message)
+    {
+        String ns = Context.NOTIFICATION_SERVICE;
+        NotificationManager mNotificationManager = (NotificationManager) getSystemService(ns);
 
 
-            int icon = R.drawable.running_icon;
-            CharSequence tickerText = "Janacare";
-            long when = System.currentTimeMillis();
+        int icon = R.drawable.running_icon;
+        CharSequence tickerText = "Janacare";
+        long when = System.currentTimeMillis();
 
-            Notification notification = new Notification(icon,
-                    tickerText, when);
-            notification.flags |= Notification.FLAG_AUTO_CANCEL;
-            Context context = getApplicationContext();
-            CharSequence contentTitle = "Habbits";
-            CharSequence contentText = message;
-            Intent notificationIntent = new Intent(context,
-                    MainActivity.class);
-            PendingIntent contentIntent = PendingIntent
-                    .getActivity(context, 0, notificationIntent, 0);
+        Notification notification = new Notification(icon,
+                tickerText, when);
+        notification.flags |= Notification.FLAG_AUTO_CANCEL;
+        Context context = getApplicationContext();
+        CharSequence contentTitle = "Habbits";
+        CharSequence contentText = message;
+        Intent notificationIntent = new Intent(context,
+                MainActivity.class);
+        PendingIntent contentIntent = PendingIntent
+                .getActivity(context, 0, notificationIntent, 0);
 
-            notification.setLatestEventInfo(context, contentTitle,
-                    contentText, contentIntent);
+        notification.setLatestEventInfo(context, contentTitle,
+                contentText, contentIntent);
 
-            mNotificationManager.notify(1, notification);
-            // Log.d("test", "Saving Data to File from Service.");
-        }
+        mNotificationManager.notify(1, notification);
+        // Log.d("test", "Saving Data to File from Service.");
+    }
 
 
 }
