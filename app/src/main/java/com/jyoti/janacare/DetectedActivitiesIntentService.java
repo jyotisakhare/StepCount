@@ -4,8 +4,11 @@ import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.google.android.gms.location.ActivityRecognitionResult;
@@ -49,6 +52,8 @@ public class DetectedActivitiesIntentService extends IntentService {
 //        Intent service = new Intent(this, GoogleFitService.class);
 //        service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_REQUEST_CONNECTION);
 //        startService(service);
+        LocalBroadcastManager.getInstance(this).registerReceiver(mFitDataReceiver, new IntentFilter(Constants.HISTORY_INTENT));
+
     }
 
     /**
@@ -83,23 +88,29 @@ public class DetectedActivitiesIntentService extends IntentService {
                 endTime = cal.getTimeInMillis();
                 if (startTime != 0) {
 
-                    totalSteps = GoogleFitService.getStepCountBetweenInterval(startTime, endTime);
-                    Log.d("detected", startTime + " " + endTime);
-                    if (totalSteps > 0) {
-                        TodayStepSummaryRecord rec = new TodayStepSummaryRecord(totalSteps, dateFormat.format(startTime), dateFormat.format(endTime), 0);
-                        boolean status = DiskCacheService.addDailyEntry(rec);
-                        if (status) {
-                            Log.d(TAG, totalSteps + " added to database");
-                            //Toast.makeText(this, "added to database", Toast.LENGTH_LONG).show();
-                        }
-                        List<TodayStepSummaryRecord> list = DiskCacheService.getDailyEntries();
-                        for (TodayStepSummaryRecord t : list) {
-                            Log.d("records", t.toString());
-                        }
-
-                    }
-                    stepsToNotify += totalSteps;
-                    startTime = 0;
+                    Intent service = new Intent(this, GoogleFitService.class);
+                    service.putExtra(Constants.SERVICE_REQUEST_TYPE, Constants.TYPE_GET_STEP_COUNT_BETWEEN_INTERVAL);
+                    service.putExtra("startTime",startTime);
+                    service.putExtra("endTime",endTime);
+                    startService(service);
+//
+//                    totalSteps = GoogleFitService.getStepCountBetweenInterval(startTime, endTime);
+//                    Log.d("detected", startTime + " " + endTime);
+//                    if (totalSteps > 0) {
+//                        TodayStepSummaryRecord rec = new TodayStepSummaryRecord(totalSteps, dateFormat.format(startTime), dateFormat.format(endTime), 0);
+//                        boolean status = DiskCacheService.addDailyEntry(rec);
+//                        if (status) {
+//                            Log.d(TAG, totalSteps + " added to database");
+//                            //Toast.makeText(this, "added to database", Toast.LENGTH_LONG).show();
+//                        }
+//                        List<TodayStepSummaryRecord> list = DiskCacheService.getDailyEntries();
+//                        for (TodayStepSummaryRecord t : list) {
+//                            Log.d("records", t.toString());
+//                        }
+//
+//                    }
+//                    stepsToNotify += totalSteps;
+//                    startTime = 0;
                 }
 
                 timerToNotify -= 1;
@@ -181,5 +192,48 @@ public class DetectedActivitiesIntentService extends IntentService {
         // Log.d("test", "Saving Data to File from Service.");
     }
 
+    private BroadcastReceiver mFitDataReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.hasExtra(Constants.HISTORY_EXTRA_STEPS_BETWEEN_INTERVAL)) {
+                totalSteps = intent.getIntExtra(Constants.HISTORY_EXTRA_STEPS_BETWEEN_INTERVAL, 0);
+                Log.d("detected totalSteps", dateFormat.format(startTime) + " " + dateFormat.format(endTime) + " " + totalSteps);
+                if (totalSteps > 0 && startTime!=0) {
+                    TodayStepSummaryRecord rec = new TodayStepSummaryRecord(totalSteps, dateFormat.format(startTime), dateFormat.format(endTime), 0);
+                    boolean status = DiskCacheService.addDailyEntry(rec);
+                    if (status) {
+                        Log.d(TAG, totalSteps + " added to database");
+                        //Toast.makeText(this, "added to database", Toast.LENGTH_LONG).show();
+                    }
+                    List<TodayStepSummaryRecord> list = DiskCacheService.getDailyEntries();
+                    for (TodayStepSummaryRecord t : list) {
+                        Log.d("records", t.toString());
+                    }
+
+                }
+                stepsToNotify += totalSteps;
+                startTime = 0;
+
+//                timerToNotify -= 1;
+//                if (timerToNotify == 0 && stepsToNotify > 0) {
+//                    //todo notify user
+//                    //todo u just waled stepstonotify steps;
+//                    //Toast.makeText(this, "u just walked "+stepsToNotify+" steps", Toast.LENGTH_LONG).show();
+//                    //notify("you walked " + stepsToNotify + " steps");
+//                    Log.d(TAG, "u just walked " + stepsToNotify + " steps");
+//                    stepsToNotify = 0;
+//                    timerToNotify = 10;
+//                }
+//                inactiveTimer--;
+//                if (inactiveTimer == 0) {
+//                    //todo notify user u are inactive from a long period of time
+//                    //notify("you are inactive from long time. \n ");
+//                    //Toast.makeText(this, "u are inactive from a long period of time", Toast.LENGTH_LONG).show();
+//                    Log.d(TAG, "u are inactive from a long period of time");
+//                }
+            }
+        }
+
+    };
 
 }

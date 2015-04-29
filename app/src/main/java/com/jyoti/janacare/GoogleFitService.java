@@ -101,7 +101,7 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
             }else if(type == Constants.TYPE_GET_STEP_COUNT_BETWEEN_INTERVAL){
                 long starTime = intent.getLongExtra("startTime", 0);
                 long endTime = intent.getLongExtra("endTime",0);
-                getStepCountBetweenInterval(starTime,endTime);
+                getStepCountBetweenIntervalAndPublish(starTime, endTime);
             }else if(type == Constants.TYPE_REMOVE_ACTIVITY_DETECTION){
                 removeActivityUpdates();
             }
@@ -123,8 +123,18 @@ public class GoogleFitService extends IntentService implements  ResultCallback<S
         int totalSteps = getStepCountBetweenInterval(startTime, endTime);
         publishTodaysStepData(totalSteps);
     }
+    private void  getStepCountBetweenIntervalAndPublish(long startTime,long endTime){
+        int totalSteps = getStepCountBetweenInterval(startTime, endTime);
+        publishTodaysStepDataToService(totalSteps);
+    }
+    protected void publishTodaysStepDataToService(int totalSteps) {
+        Intent intent = new Intent(Constants.HISTORY_INTENT);
+        intent.putExtra(Constants.HISTORY_EXTRA_STEPS_BETWEEN_INTERVAL, totalSteps);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
 
-    public static int getStepCountBetweenInterval(long startTime,long endTime)
+
+    private  int getStepCountBetweenInterval(long startTime,long endTime)
     {
 
         mGoogleApiFitnessClient.connect();
@@ -480,7 +490,7 @@ protected void publishTodaysStepData(int totalSteps) {
                     Intent service = new Intent(GoogleFitService.this, DetectedActivitiesIntentService.class);
                     service.putExtra("walking", 1);
                     startService(service);
-                    Log.i(TAG, "Detected DataPoint field: " + field.getName());
+                    //Log.i(TAG, "Detected DataPoint field: " + field.getName());
                     Log.i(TAG, "Detected DataPoint value: " + val);
                 }
             }

@@ -14,6 +14,7 @@ public class Constants {
     public static final int TYPE_WEEKLY_STEP_COUNT = 4;
     public static final int TYPE_GET_STEP_COUNT_BETWEEN_INTERVAL = 5;
     public static final int TYPE_REMOVE_ACTIVITY_DETECTION = 6;
+    public static final String HISTORY_EXTRA_STEPS_BETWEEN_INTERVAL = "stepsBetweenInterval";
     public static final String HISTORY_INTENT = "fitHistory";
     public static final String HISTORY_EXTRA_STEPS_TODAY = "stepsToday";
     public static final String HISTOY_EXTRA_STEPS_TODAY_SUMMARY ="stepsTodaySummary";
